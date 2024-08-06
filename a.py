@@ -9,23 +9,31 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from ucimlrepo import fetch_ucirepo
 
-# Fetch and load the dataset
 def load_dataset():
     dataset = fetch_ucirepo(id=601)
     X = dataset.data.features
     y = dataset.data.targets
+    print(f"Shape of y after loading: {y.shape}")  # Check the shape of y after loading
     if isinstance(y, pd.DataFrame):
         y = y.iloc[:, 0]  # Ensure y is a single column
-    y = np.ravel(y)  # Flatten the array to 1D
+    y = np.squeeze(y)  # Remove any extra dimensions
+    print(f"Shape of y after flattening: {y.shape}")  # Check the shape of y after flattening
     return X, y
+
+
+
+
 
 # Preprocess the dataset
 def preprocess_data(X):
     return pd.get_dummies(X, columns=["Type"])
 
-# Split the dataset
 def split_data(X, y):
-    return train_test_split(X, y, test_size=0.2, random_state=42)
+    print(f"Shape of y before splitting: {y.shape}")  # Check the shape of y before splitting
+    return train_test_split(X, y, test_size=0.3, random_state=42)
+
+
+
 
 # Train the model
 def train_model(X_train, y_train):
@@ -96,15 +104,18 @@ def compare_models(X_train, y_train, X_test, y_test):
 
 # Additional evaluation metrics
 def additional_metrics(model, X_test, y_test):
+    y_test = np.squeeze(y_test)  # Ensure y_test is 1D
     roc_auc = roc_auc_score(y_test, model.predict_proba(X_test), multi_class='ovr')
     precision, recall, _ = precision_recall_curve(y_test, model.predict_proba(X_test)[:, 1])
     return roc_auc, precision, recall
 
-# Main function
+
 def main():
     X, y = load_dataset()
     X_encoded = preprocess_data(X)
     X_train, X_test, y_train, y_test = split_data(X_encoded, y)
+    print(f"Shape of y_train: {y_train.shape}")  # Ensure y_train is 1D
+    print(f"Shape of y_test: {y_test.shape}")    # Ensure y_test is 1D
     model = train_model(X_train, y_train)
     metrics, predictions = evaluate_model(model, X_test, y_test)
     print(f"Accuracy: {metrics['accuracy']}")
@@ -127,3 +138,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
