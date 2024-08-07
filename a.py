@@ -9,6 +9,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from ucimlrepo import fetch_ucirepo
 
+
+
 def load_dataset():
     dataset = fetch_ucirepo(id=601)
     X = dataset.data.features
@@ -105,7 +107,8 @@ def compare_models(X_train, y_train, X_test, y_test):
 # Additional evaluation metrics
 def additional_metrics(model, X_test, y_test):
     y_test = np.squeeze(y_test)  # Ensure y_test is 1D
-    roc_auc = roc_auc_score(y_test, model.predict_proba(X_test), multi_class='ovr')
+    y_proba=model.predict_proba(X_test)
+    roc_auc = roc_auc_score(y_test, y_proba[:,1], multi_class='ovr')
     precision, recall, _ = precision_recall_curve(y_test, model.predict_proba(X_test)[:, 1])
     return roc_auc, precision, recall
 
