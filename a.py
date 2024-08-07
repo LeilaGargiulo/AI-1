@@ -9,8 +9,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from ucimlrepo import fetch_ucirepo
 
-
-
 def load_dataset():
     dataset = fetch_ucirepo(id=601)
     X = dataset.data.features
@@ -22,10 +20,6 @@ def load_dataset():
     print(f"Shape of y after flattening: {y.shape}")  # Check the shape of y after flattening
     return X, y
 
-
-
-
-
 # Preprocess the dataset
 def preprocess_data(X):
     return pd.get_dummies(X, columns=["Type"])
@@ -33,9 +27,6 @@ def preprocess_data(X):
 def split_data(X, y):
     print(f"Shape of y before splitting: {y.shape}")  # Check the shape of y before splitting
     return train_test_split(X, y, test_size=0.3, random_state=42)
-
-
-
 
 # Train the model
 def train_model(X_train, y_train):
@@ -71,14 +62,8 @@ def feature_importances(model, X_encoded):
     return feature_importances.sort_values(by='Importance', ascending=False)
 
 # Hyperparameter tuning
-def hyperparameter_tuning(X_train, y_train):
-    param_grid = {
-        'criterion': ['gini', 'entropy'],
-        'max_depth': [None, 10, 20, 30],
-        'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 2, 4]
-    }
-    grid_search = GridSearchCV(estimator=DecisionTreeClassifier(), param_grid=param_grid, cv=5, scoring='accuracy')
+def hyperparameter_tuning(model, param_grid, X_train, y_train):
+    grid_search = GridSearchCV(estimator=model, param_grid=param_grid, cv=5, scoring='accuracy')
     grid_search.fit(X_train, y_train)
     return grid_search.best_estimator_
 
@@ -107,11 +92,11 @@ def compare_models(X_train, y_train, X_test, y_test):
 # Additional evaluation metrics
 def additional_metrics(model, X_test, y_test):
     y_test = np.squeeze(y_test)  # Ensure y_test is 1D
-    y_proba=model.predict_proba(X_test)
+    y_proba = model.predict_proba(X_test)
     roc_auc = roc_auc_score(y_test, y_proba[:,1], multi_class='ovr')
-    precision, recall, _ = precision_recall_curve(y_test, model.predict_proba(X_test)[:, 1])
+    print(f"Shape of Proba: {y_proba.shape}")
+    precision, recall, _ = precision_recall_curve(y_test, y_proba[:, 1])
     return roc_auc, precision, recall
-
 
 def main():
     X, y = load_dataset()
@@ -119,26 +104,66 @@ def main():
     X_train, X_test, y_train, y_test = split_data(X_encoded, y)
     print(f"Shape of y_train: {y_train.shape}")  # Ensure y_train is 1D
     print(f"Shape of y_test: {y_test.shape}")    # Ensure y_test is 1D
-    model = train_model(X_train, y_train)
-    metrics, predictions = evaluate_model(model, X_test, y_test)
-    print(f"Accuracy: {metrics['accuracy']}")
-    print(f"Precision: {metrics['precision']}")
-    print(f"Recall: {metrics['recall']}")
-    print(f"F1 Score: {metrics['f1']}")
-    plot_confusion_matrix(y_test, predictions)
-    feature_importances_df = feature_importances(model, X_encoded)
-    print(feature_importances_df)
-    best_model = hyperparameter_tuning(X_train, y_train)
-    cv_scores = cross_validation(model, X_encoded, y)
-    print(f"Cross-Validation Accuracy Scores: {cv_scores}")
-    print(f"Mean Cross-Validation Accuracy: {cv_scores.mean()}")
+
+    # Train and evaluate Decision Tree model
+    dt_model = train_model(X_train, y_train)
+    dt_metrics, dt_predictions = evaluate_model(dt_model, X_test, y_test)
+    print(f"Decision Tree - Accuracy: {dt_metrics['accuracy']}")
+    print(f"Decision Tree - Precision: {dt_metrics['precision']}")
+    print(f"Decision Tree - Recall: {dt_metrics['recall']}")
+    print(f"Decision Tree - F1 Score: {dt_metrics['f1']}")
+    plot_confusion_matrix(y_test, dt_predictions)
+    dt_feature_importances_df = feature_importances(dt_model, X_encoded)
+    print(dt_feature_importances_df)
+
+    # Hyperparameter tuning for Decision Tree
+    dt_param_grid = {
+        'criterion': ['gini', 'entropy'],
+        'max_depth': [None, 10, 20, 30],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4]
+    }
+    best_dt_model = hyperparameter_tuning(DecisionTreeClassifier(), dt_param_grid, X_train, y_train)
+
+    # Cross-validation for Decision Tree
+    dt_cv_scores = cross_validation(best_dt_model, X_encoded, y)
+    print(f"Decision Tree - Cross-Validation Accuracy Scores: {dt_cv_scores}")
+    print(f"Decision Tree - Mean Cross-Validation Accuracy: {dt_cv_scores.mean()}")
+
+    # Polynomial features
     X_poly = polynomial_features(X_encoded)
+
+    # Train and evaluate Random Forest and Gradient Boosting models
     rf_accuracy, gb_accuracy = compare_models(X_train, y_train, X_test, y_test)
     print(f"Random Forest Accuracy: {rf_accuracy}")
     print(f"Gradient Boosting Accuracy: {gb_accuracy}")
-    roc_auc, precision, recall = additional_metrics(model, X_test, y_test)
-    print(f"ROC-AUC Score: {roc_auc}")
+
+    # Additional metrics for Decision Tree
+    dt_roc_auc, dt_precision, dt_recall = additional_metrics(best_dt_model, X_test, y_test)
+    print(f"Decision Tree - ROC-AUC Score: {dt_roc_auc}")
+
+    # Hyperparameter tuning for Random Forest and Gradient Boosting
+    rf_param_grid = {
+        'n_estimators': [100, 200],
+        'max_depth': [None, 10, 20],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4]
+    }
+    gb_param_grid = {
+        'n_estimators': [100, 200],
+        'learning_rate': [0.01, 0.1, 0.2],
+        'max_depth': [3, 5, 7]
+    }
+    best_rf_model = hyperparameter_tuning(RandomForestClassifier(), rf_param_grid, X_train, y_train)
+    best_gb_model = hyperparameter_tuning(GradientBoostingClassifier(), gb_param_grid, X_train, y_train)
+
+    # Feature importances for Random Forest and Gradient Boosting
+    rf_feature_importances_df = feature_importances(best_rf_model, X_encoded)
+    gb_feature_importances_df = feature_importances(best_gb_model, X_encoded)
+    print("Random Forest Feature Importances:")
+    print(rf_feature_importances_df)
+    print("Gradient Boosting Feature Importances:")
+    print(gb_feature_importances_df)
 
 if __name__ == "__main__":
     main()
-
